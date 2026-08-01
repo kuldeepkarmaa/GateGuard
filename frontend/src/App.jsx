@@ -1,6 +1,8 @@
 import React, { useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './context/AuthContext';
+
+import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import ResidentDashboard from './pages/ResidentDashboard';
 import GuardDashboard from './pages/GuardDashboard';
@@ -18,10 +20,13 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" />} />
-          {/* Fixed missing /login route */}
+          {/* Public Landing Page */}
+          <Route path="/" element={<LandingPage />} />
+          
+          {/* Auth Login/Signup */}
           <Route path="/login" element={<AuthPage />} />
           
+          {/* Role-Based Dashboards */}
           <Route path="/resident-dashboard" element={
             <ProtectedRoute allowedRole="Resident">
               <ResidentDashboard />
@@ -40,7 +45,8 @@ export default function App() {
             </ProtectedRoute>
           } />
 
-          <Route path="*" element={<Navigate to="/login" />} />
+          {/* Catch-all Fallback */}
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

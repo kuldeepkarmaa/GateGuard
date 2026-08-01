@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 module.exports = function (req, res, next) {
   const authHeader = req.header('Authorization');
   if (!authHeader) {
-    return res.status(401).json({ success: false, message: 'No token, authorization denied' });
+    return res.status(401).json({ success: false, message: 'No token provided' });
   }
 
   try {
@@ -12,6 +12,6 @@ module.exports = function (req, res, next) {
     req.user = decoded;
     next();
   } catch (err) {
-    res.status(401).json({ success: false, message: 'Token is not valid' });
+    res.status(401).json({ success: false, message: 'Invalid authentication token' });
   }
 };

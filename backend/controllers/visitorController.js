@@ -1,7 +1,7 @@
 const Visitor = require('../models/Visitor');
 const Resident = require('../models/Resident');
 
-// Generate Pre-Approved Visitor Pass with OTP (Resident)
+// 1. Generate Pre-Approved Visitor Pass with OTP (Resident)
 exports.preApproveVisitor = async (req, res) => {
   try {
     const { name, phone, purpose } = req.body;
@@ -34,12 +34,16 @@ exports.preApproveVisitor = async (req, res) => {
   }
 };
 
-// Verify OTP at Gate (Guard)
+// 2. Verify OTP at Gate (Guard)
 exports.verifyOTP = async (req, res) => {
   try {
     const { otp } = req.body;
 
-    const visitor = await Visitor.findOne({ otp, status: { $in: ['Pre-Approved', 'Pending Approval'] } });
+    const visitor = await Visitor.findOne({ 
+      otp, 
+      status: { $in: ['Pre-Approved', 'Pending Approval', 'Approved'] } 
+    });
+
     if (!visitor) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }
@@ -58,7 +62,7 @@ exports.verifyOTP = async (req, res) => {
   }
 };
 
-// Visitor Exit / Checkout (Guard)
+// 3. Visitor Exit / Checkout (Guard)
 exports.checkoutVisitor = async (req, res) => {
   try {
     const { id } = req.params;
@@ -82,21 +86,104 @@ exports.checkoutVisitor = async (req, res) => {
   }
 };
 
-// Get Visitors List (Role-Based Dynamic Queries)
+// 4. Get Visitors List (Role-Based Dynamic Queries)
 exports.getVisitors = async (req, res) => {
   try {
     let query = {};
 
-    if (req.user.role === 'Resident') {
+    // If logged-in user is Resident, fetch visitors belonging ONLY to their resident profile
+    if (req.user && req.user.role === 'Resident') {
       const resident = await Resident.findOne({ userId: req.user.id });
       if (resident) query.residentId = resident._id;
     }
 
+    // Admin & Guard will fetch all society visitor entries
     const visitors = await Visitor.find(query)
-      .populate({ path: 'residentId', populate: { path: 'userId', select: 'name phone' } })
+      .populate({ 
+        path: 'residentId', 
+        populate: { path: 'userId', select: 'name phone' } 
+      })
       .sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, count: visitors.length, visitors });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 5. Guard Requests Entry for Unannounced Visitor (Supports Flat No. / Block OR residentId)
+exports.requestEntry = async (req, res) => {
+  try {
+    const { name, phone, purpose, residentId, flatNumber, block } = req.body;
+
+    let targetResidentId = residentId;
+
+    // If Flat Number is provided by Guard, search for the Resident profile dynamically
+    if (!targetResidentId && flatNumber) {
+      const resident = await Resident.findOne({
+        flatNumber: flatNumber.toString().trim(),
+        block: block ? block.toString().trim() : 'A'
+      });
+
+      if (!resident) {
+        return res.status(404).json({ 
+          success: false, 
+          message: `No resident registered at Flat ${flatNumber} (Block ${block || 'A'})` 
+        });
+      }
+
+      targetResidentId = resident._id;
+    }
+
+    if (!targetResidentId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide either Flat Number or Resident ID' 
+      });
+    }
+
+    const visitor = await Visitor.create({
+      name,
+      phone,
+      purpose: purpose || 'Guest',
+      residentId: targetResidentId,
+      status: 'Pending Approval'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Access request sent to Resident successfully',
+      visitor
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 6. Resident Approves or Rejects Visitor Request
+exports.respondToVisitorRequest = async (req, res) => {
+  try {
+    const { visitorId, status } = req.body; // status: 'Approved' or 'Rejected'
+
+    if (!['Approved', 'Rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status choice' });
+    }
+
+    const visitor = await Visitor.findByIdAndUpdate(
+      visitorId,
+      { status },
+      { returnDocument: 'after' }
+    );
+
+    if (!visitor) {
+      return res.status(404).json({ success: false, message: 'Visitor request not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Visitor request has been ${status.toLowerCase()}`,
+      visitor
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

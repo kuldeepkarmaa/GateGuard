@@ -5,11 +5,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
   password: { type: String, required: true },
-  role: { 
-    type: String, 
-    enum: ['Admin', 'Resident', 'Guard'], 
-    default: 'Resident' 
-  },
+  role: { type: String, enum: ['Admin', 'Resident', 'Guard'], default: 'Resident' },
   status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }
 }, { timestamps: true });
 

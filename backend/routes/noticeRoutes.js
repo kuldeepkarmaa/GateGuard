@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { createComplaint, getComplaints, updateComplaintStatus } = require('../controllers/complaintController');
+const { createNotice, getNotices, deleteNotice } = require('../controllers/noticeController');
 const auth = require('../middleware/authMiddleware');
-const upload = require('../config/multer');
 
-router.post('/', auth, upload.single('image'), createComplaint);
-router.get('/', auth, getComplaints);
-router.put('/:id', auth, updateComplaintStatus);
+router.post('/', auth, createNotice);
+router.get('/', getNotices);
+router.delete('/:id', auth, deleteNotice);
 
 module.exports = router;
